@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>矩阵计算器</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- 引入 Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        /*背景数组*/
+        
+        body {
+            /* 假设背景图片名为 background.jpg */
+            background-image: url('https://www.bing.com/th?id=OHR.GoremeTurkey_ZH-CN0255739302_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp'); 
+            background-size: cover; /* 让背景图片覆盖整个元素 */
+            background-position: center; /* 背景图片居中显示 */
+            background-repeat: no-repeat; /* 背景图片不重复 */
+            background-attachment: fixed; /* 背景图片固定，不随页面滚动 */
+        }
+        /* 增大特征向量显示盒子的宽度和高度 */
+        .eigen-group .math-display {
+            width: auto; /* 自动调整宽度 */
+            min-width: 200px; /* 设置最小宽度 */
+            height: auto; /* 自动调整高度 */
+            min-height: 50px; /* 设置最小高度 */
+            overflow: auto; /* 当内容超出时显示滚动条 */
+            border: 1px solid #ccc; /* 添加边框以便观察 */
+            padding: 10px; /* 添加内边距 */
+            margin-bottom: 10px; /* 添加底部外边距 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 在标题旁边添加图标 -->
+        <h1><i class="fa-solid fa-calculator"></i> 在线矩阵计算器</h1>
+
+        {% if error %}
+        <div class="error">{{ error|safe }}</div>
+        {% endif %}
+
+        <form id="matrixForm" method="post">
+            <div class="input-group">
+                <label>行数(m): <input type="number" name="rows" min="1" value="{{ request.form.rows or 2 }}" required></label>
+                <label>列数(n): <input type="number" name="cols" min="1" value="{{ request.form.cols or 2 }}" required></label>
+                <!-- 在按钮上添加图标 -->
+                <button type="button" onclick="createMatrixInputs()"><i class="fa-solid fa-table-cells"></i> 生成矩阵输入</button>
+            </div>
+
+            <div id="matrixInput"></div>
+
+            <!-- 在按钮上添加图标 -->
+            <button type="submit"><i class="fa-solid fa-calculator"></i> 计算</button>
+        </form>
+
+        {% if results %}
+        <div class="results">
+            <h2><i class="fa-solid fa-clipboard-list"></i> 计算结果</h2>
+
+            <div class="result-section">
+                <h3><i class="fa-solid fa-matrix"></i> 原始矩阵</h3>
+                <div class="math-display">\[ {{ results.original }} \]</div>
+            </div>
+
+            <div class="result-section">
+                <h3><i class="fa-solid fa-ranking-star"></i> 矩阵秩</h3>
+                <p>{{ results.rank }}</p>
+            </div>
+
+            <div class="result-section">
+                <h3><i class="fa-solid fa-matrix"></i> 行简化阶梯形(RREF)</h3>
+                <div class="math-display">\[ {{ results.rref }} \]</div>
+            </div>
+
+            {% if results.inv %}
+            <div class="result-section">
+                <h3><i class="fa-solid fa-undo"></i> 矩阵的逆</h3>
+                <div class="math-display">\[ {{ results.inv }} \]</div>
+            </div>
+            {% elif results.inv_error %}
+            <div class="error">矩阵求逆错误: {{ results.inv_error }}</div>
+            {% endif %}
+
+            {% if results.det %}
+            <div class="result-section">
+                <h3><i class="fa-solid fa-calculator"></i> 行列式</h3>
+                <div class="math-display">\[ {{ results.det }} \]</div>
+            </div>
+            {% elif results.det_error %}
+            <div class="error">行列式计算错误: {{ results.det_error }}</div>
+            {% endif %}
+
+            {% if results.charpoly %}
+            <div class="result-section">
+                <h3><i class="fa-solid fa-polynomial"></i> 特征多项式</h3>
+                <div class="math-display">\[ {{ results.charpoly }} = 0 \]</div>
+            </div>
+            {% elif results.charpoly_error %}
+            <div class="error">特征多项式计算错误: {{ results.charpoly_error }}</div>
+            {% endif %}
+
+            {% if results.eigenvals %}
+            <div class="result-section">
+                <h3><i class="fa-solid fa-arrow-up-right-dots"></i> 特征值</h3>
+                {% for eigenval in results.eigenvals %}
+                <p>\( {{ eigenval }} \)</p>
+                {% endfor %}
+            </div>
+            {% elif results.eigenvals_error %}
+            <div class="error">特征值计算错误: {{ results.eigenvals_error }}</div>
+            {% endif %}
+
+            {% if results.eigenvecs %}
+            <div class="result-section">
+                <h3><i class="fa-solid fa-arrow-up-right-dots"></i> 特征向量</h3>
+                {% for eigenvec in results.eigenvecs %}
+                <div class="eigen-group">
+                    <p>特征值: \( {{ eigenvec.value }} \) (代数重数: {{ eigenvec.multiplicity }})</p>
+                    {% for vec in eigenvec.vectors %}
+                    <div class="math-display">特征向量: \( {{ vec }} \)</div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+            {% elif results.eigenvecs_error %}
+            <div class="error">特征向量计算错误: {{ results.eigenvecs_error }}</div>
+            {% endif %}
+
+            <div class="result-section">
+                <h3><i class="fa-solid fa-ban"></i> 零空间</h3>
+                {% if results.nullspace == "零空间仅包含零向量。" %}
+                <p>{{ results.nullspace }}</p>
+                {% else %}
+                {% for vec in results.nullspace %}
+                <div class="math-display">\[ {{ vec }} \]</div>
+                {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- 矩阵分解 -->
+            <div class="result-section">
+                <h3><i class="fa-solid fa-split"></i> 矩阵分解</h3>
+
+                <!-- 谱分解 -->
+                {% if results.spectral_P and results.spectral_D %}
+                <div class="sub-section">
+                    <h4><i class="fa-solid fa-split"></i> 谱分解</h4>
+                    <p>\( P = \) <div class="math-display">\[ {{ results.spectral_P }} \]</div></p>
+                    <p>\( D = \) <div class="math-display">\[ {{ results.spectral_D }} \]</div></p>
+                </div>
+                {% elif results.spectral_error %}
+                <div class="error">谱分解错误: {{ results.spectral_error }}</div>
+                {% endif %}
+
+                <!-- QR分解 -->
+                {% if results.QR_Q and results.QR_R %}
+                <div class="sub-section">
+                    <h4><i class="fa-solid fa-layer-group"></i> QR 分解</h4>
+                    <p>\( Q = \) <div class="math-display">\[ {{ results.QR_Q }} \]</div></p>
+                    <p>\( R = \) <div class="math-display">\[ {{ results.QR_R }} \]</div></p>
+                </div>
+                {% elif results.QR_error %}
+                <div class="error">QR 分解错误: {{ results.QR_error }}</div>
+                {% endif %}
+
+                <!-- LU分解 -->
+                {% if results.LU_L and results.LU_U %}
+                <div class="sub-section">
+                    <h4><i class="fa-solid fa-layer-group"></i> LU 分解</h4>
+                    <p>\( L = \) <div class="math-display">\[ {{ results.LU_L }} \]</div></p>
+                    <p>\( U = \) <div class="math-display">\[ {{ results.LU_U }} \]</div></p>
+                </div>
+                {% elif results.LU_error %}
+                <div class="error">LU 分解错误: {{ results.LU_error }}</div>
+                {% endif %}
+
+                <!-- 秩分解 -->
+                {% if results.rank_B and results.rank_C %}
+                <div class="sub-section">
+                    <h4><i class="fa-solid fa-layer-group"></i> 秩分解(近似)</h4>
+                    <p>\( B = \) <div class="math-display">\[ {{ results.rank_B }} \]</div></p>
+                    <p>\( C = \) <div class="math-display">\[ {{ results.rank_C }} \]</div></p>
+                </div>
+                {% elif results.rank_error %}
+                <div class="error">秩分解错误: {{ results.rank_error }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // 动态生成矩阵输入框
+        function createMatrixInputs() {
+            const m = parseInt(document.querySelector('input[name="rows"]').value);
+            const n = parseInt(document.querySelector('input[name="cols"]').value);
+            const container = document.getElementById('matrixInput');
+
+            let html = '<table>';
+            for (let i = 0; i < m; i++) {
+                html += '<tr>';
+                for (let j = 0; j < n; j++) {
+                    html += `<td><input type="text" name="matrix[${i}][${j}]"
+                              placeholder="0" value="{{ request.form.get('matrix[${i}][${j}]', '') }}"></td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+
+            container.innerHTML = html;
+        }
+
+        // 初始加载时生成输入框
+        document.addEventListener('DOMContentLoaded', createMatrixInputs);
+        //保存页面为HTML文件
+      
+    </script>
+</body>
+</html>
